@@ -5,3 +5,5 @@ boto3
 pygame
 wave
 uuid
+picovoice==2.2.1
+python-dotenv

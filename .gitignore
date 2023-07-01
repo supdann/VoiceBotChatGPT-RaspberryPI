@@ -164,3 +164,8 @@ cython_debug/
 #.idea/
 local-notes.txt
 output.mp3
+
+data
+temp
+
+*.ppn

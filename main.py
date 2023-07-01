@@ -1,3 +1,4 @@
+import dotenv
 import json
 from chat_gpt_service import ChatGPTService
 from input_listener import InputListener
@@ -6,6 +7,11 @@ import struct
 import os
 import pyaudio
 import openai
+from time import sleep
+
+dotenv.load_dotenv(".env")
+
+SECRET_SAUCE_PROMPT = os.environ.get("PROMPT")
 
 from tts_service import TextToSpeechService
 
@@ -17,17 +23,21 @@ if "openai_org" in config:
 
 class WakeWordDetector:
     def __init__(self, library_path, model_path, keyword_paths):
-        self.chat_gpt_service = ChatGPTService()
+        init_prompt = SECRET_SAUCE_PROMPT
+
+        self.chat_gpt_service = ChatGPTService(prompt=init_prompt)
+
         # load access key from config
         pv_access_key = config["pv_access_key"]
 
         self.handle = pvporcupine.create(
-            keywords=["picovoice"],
             access_key=pv_access_key,
-            # library_path=library_path,
-            # model_path=model_path,
-            # keyword_paths=keyword_paths,
-            sensitivities=[1],
+            # You will need to create your own models with your account on picovoice.ai
+            # Then use as following:
+            keyword_paths=[
+                "/home/pi/VoiceBotChatGPT-RaspberryPI/Hey-buddy_en_raspberry-pi_v2_2_0.ppn",
+                "/home/pi/VoiceBotChatGPT-RaspberryPI/Hey-KITT_en_raspberry-pi_v2_2_0.ppn",
+            ],
         )
 
         self.pa = pyaudio.PyAudio()
@@ -48,7 +58,7 @@ class WakeWordDetector:
         print("Looking for sound card...")
         for i in range(self.pa.get_device_count()):
             device_info = self.pa.get_device_info_by_index(i)
-            print(device_info["name"]) 
+            print(device_info["name"])
             if sound_card_name in device_info["name"]:
                 print("Found sound card! Using device index: %d" % i)
                 self.input_device_index = i
@@ -56,7 +66,7 @@ class WakeWordDetector:
         else:
             raise Exception("Could not find sound device")
 
-        self.speech = TextToSpeechService()#self.input_device_index)
+        self.speech = TextToSpeechService()  # self.input_device_index)
 
         self._init_audio_stream()
 
@@ -68,7 +78,6 @@ class WakeWordDetector:
             input=True,
             frames_per_buffer=self.handle.frame_length,
         )
-        # input_device_index=self.input_device_index)
 
     def run(self):
         try:
@@ -95,7 +104,6 @@ class WakeWordDetector:
                     )
                     print(response)
 
-
                     print("Playing response...")
                     # play response
                     self.speech.speak(response)
@@ -121,5 +129,13 @@ if __name__ == "__main__":
     model_path = "/path/to/porcupine/model"
     keyword_paths = ["/path/to/porcupine/keyword"]
 
-    detector = WakeWordDetector(library_path, model_path, keyword_paths)
-    detector.run()
+    running = True
+
+    while running:
+        try:
+            detector = WakeWordDetector(library_path, model_path, keyword_paths)
+            detector.run()
+        except Exception as e:
+            print(e)
+            print("Some error. Waiting and restarting")
+            sleep(1)
